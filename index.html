@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BlessingDay - 专属生日祝福</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: { extend: { fontFamily: { sans: ['Manrope', 'sans-serif'] } } }
+        }
+    </script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        ::selection { background: #F43F5E; color: #fff; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #111; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+        body { font-family: 'Manrope', sans-serif; background: #0a0a0a; color: #fff; overflow-x: hidden; }
+
+        .view { display: none; opacity: 0; transition: opacity 0.5s ease; }
+        .view.active { display: block; opacity: 1; }
+
+        .glass { background: rgba(255,255,255,0.05); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.08); }
+        .glass-strong { background: rgba(255,255,255,0.08); backdrop-filter: blur(30px); border: 1px solid rgba(255,255,255,0.12); }
+
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
+        @keyframes confetti-fall { 0% { transform: translateY(-100vh) rotate(0deg); opacity: 1; } 100% { transform: translateY(100vh) rotate(720deg); opacity: 0; } }
+        @keyframes heart-float { 0% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 0; transform: translateY(-150px) scale(0.3); } }
+        @keyframes sparkle { 0%, 100% { opacity: 0; transform: scale(0); } 50% { opacity: 1; transform: scale(1); } }
+        @keyframes scaleIn { from { opacity: 0; transform: scale(0.5); } to { opacity: 1; transform: scale(1); } }
+        @keyframes shimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
+        @keyframes pulse-ring { 0% { transform: scale(1); opacity: 0.6; } 100% { transform: scale(1.5); opacity: 0; } }
+
+        .animate-fade-in-up { animation: fadeInUp 0.8s ease-out forwards; opacity: 0; }
+        .animate-float { animation: float 3s ease-in-out infinite; }
+        .confetti-piece { position: fixed; top: -20px; z-index: 9999; pointer-events: none; animation: confetti-fall linear forwards; }
+        .heart-particle { position: absolute; pointer-events: none; animation: heart-float 1.5s ease-out forwards; }
+        .sparkle-dot { position: absolute; pointer-events: none; animation: sparkle 1.5s ease-in-out infinite; }
+
+        .input-field { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff; transition: all 0.3s ease; }
+        .input-field:focus { border-color: #F43F5E; box-shadow: 0 0 0 3px rgba(244,63,94,0.15); outline: none; }
+        .input-field::placeholder { color: #555; }
+
+        .thank-card { transform: translateY(20px); opacity: 0; transition: all 0.5s ease; }
+        .thank-card.show { transform: translateY(0); opacity: 1; }
+
+        .gradient-text { background: linear-gradient(135deg, #F43F5E, #A855F7, #D4AF37); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-size: 200% auto; animation: shimmer 3s linear infinite; }
+
+        .blessing-anim { opacity: 0; transform: translateY(30px); }
+
+        .shake { animation: shake 0.4s ease; }
+
+        .theme-btn { transition: all 0.3s ease; cursor: pointer; }
+        .theme-btn:hover { transform: scale(1.05); }
+
+        #qrcode-container canvas, #qrcode-container img { margin: 0 auto; border-radius: 8px; }
+    </style>
+</head>
+<body>
+
+<!-- Toast -->
+<div id="toast" class="fixed top-6 right-6 z-[200] translate-x-[120%] transition-transform duration-300">
+    <div class="glass-strong rounded-xl px-6 py-4 flex items-center gap-3 shadow-2xl">
+        <i data-lucide="check-circle" class="w-5 h-5 text-green-400"></i>
+        <span id="toast-text" class="text-sm font-medium"></span>
+    </div>
+</div>
+
+<!-- ==================== HOME ==================== -->
+<div id="view-home" class="view active">
+    <nav class="fixed top-0 left-0 right-0 z-40 px-6 md:px-12 py-4 md:py-6 flex justify-between items-center" style="background: linear-gradient(to bottom, rgba(10,10,10,0.95), transparent);">
+        <div class="flex items-center gap-3">
+            <span class="text-2xl">🎂</span>
+            <span class="font-bold text-lg tracking-tight">BlessingDay</span>
+        </div>
+        <button onclick="showView('create')" class="bg-rose-500 hover:bg-rose-600 text-white px-6 py-2.5 rounded-full font-semibold text-sm transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-rose-500/25">
+            立即定制
+        </button>
+    </nav>
+
+    <section class="relative min-h-screen flex items-center justify-center overflow-hidden">
+        <div class="absolute inset-0">
+            <div class="absolute top-20 left-10 w-72 md:w-96 h-72 md:h-96 bg-rose-500/10 rounded-full blur-3xl"></div>
+            <div class="absolute bottom-20 right-10 w-72 md:w-96 h-72 md:h-96 bg-amber-500/10 rounded-full blur-3xl"></div>
+            <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-purple-500/5 rounded-full blur-3xl"></div>
+        </div>
+        <div class="relative z-10 text-center px-6 max-w-4xl mx-auto">
+            <div class="animate-fade-in-up" style="animation-delay:0.1s">
+                <span class="inline-block px-4 py-2 rounded-full glass text-xs font-bold uppercase tracking-widest text-rose-400 mb-8">✨ 全新生日祝福体验</span>
+            </div>
+            <h1 class="text-4xl sm:text-5xl md:text-7xl lg:text-8xl font-bold tracking-tighter leading-[0.95] mb-8 animate-fade-in-up" style="animation-delay:0.2s">
+                用一份<br>
+                <span class="gradient-text">专属祝福</span><br>
+                温暖TA的生日
+            </h1>
+            <p class="text-base md:text-xl text-neutral-400 font-light max-w-2xl mx-auto mb-12 animate-fade-in-up" style="animation-delay:0.3s">
+                定制个性化生日祝福页面，生成专属二维码<br class="hidden md:block">
+                TA扫码输入生日即可解锁这份独一无二的惊喜
+            </p>
+            <div class="flex flex-col sm:flex-row gap-4 justify-center animate-fade-in-up" style="animation-delay:0.4s">
+                <button onclick="showView('create')" class="bg-rose-500 hover:bg-rose-600 text-white px-10 py-4 rounded-full font-bold text-lg transition-all duration-300 hover:scale-105 hover:shadow-xl hover:shadow-rose-500/30">
+                    开始定制 🎁
+                </button>
+                <button onclick="previewDemo()" class="glass hover:bg-white/10 text-white px-10 py-4 rounded-full font-semibold text-lg transition-all duration-300">
+                    查看演示
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <section class="py-20 md:py-32 px-6 md:px-12">
+        <div class="max-w-6xl mx-auto">
+            <h2 class="text-3xl md:text-5xl font-bold tracking-tighter text-center mb-4">三步完成</h2>
+            <p class="text-neutral-400 text-center text-lg mb-16">简单操作，即刻传递温暖</p>
+            <div class="grid md:grid-cols-3 gap-6 md:gap-8">
+                <div class="glass rounded-2xl p-8 text-center hover:bg-white/10 transition-all duration-300 group">
+                    <div class="w-16 h-16 rounded-2xl bg-rose-500/20 flex items-center justify-center text-3xl mx-auto mb-6 group-hover:scale-110 transition-transform">✍️</div>
+                    <div class="text-xs font-bold text-rose-400 uppercase tracking-widest mb-3">Step 01</div>
+                    <h3 class="text-xl font-bold mb-3">填写信息</h3>
+                    <p class="text-neutral-400 text-sm leading-relaxed">输入对方的名字、生日<br>和你的专属祝福语</p>
+                </div>
+                <div class="glass rounded-2xl p-8 text-center hover:bg-white/10 transition-all duration-300 group">
+                    <div class="w-16 h-16 rounded-2xl bg-amber-500/20 flex items-center justify-center text-3xl mx-auto mb-6 group-hover:scale-110 transition-transform">🎨</div>
+                    <div class="text-xs font-bold text-amber-400 uppercase tracking-widest mb-3">Step 02</div>
+                    <h3 class="text-xl font-bold mb-3">选择主题</h3>
+                    <p class="text-neutral-400 text-sm leading-relaxed">挑选最适合TA的祝福风格<br>和配色主题</p>
+                </div>
+                <div class="glass rounded-2xl p-8 text-center hover:bg-white/10 transition-all duration-300 group">
+                    <div class="w-16 h-16 rounded-2xl bg-purple-500/20 flex items-center justify-center text-3xl mx-auto mb-6 group-hover:scale-110 transition-transform">📱</div>
+                    <div class="text-xs font-bold text-purple-400 uppercase tracking-widest mb-3">Step 03</div>
+                    <h3 class="text-xl font-bold mb-3">分享二维码</h3>
+                    <p class="text-neutral-400 text-sm leading-relaxed">保存精美二维码卡片图片<br>发给TA扫码输入生日解锁</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="py-20 md:py-32 px-6 md:px-12">
+        <div class="max-w-6xl mx-auto">
+            <h2 class="text-3xl md:text-5xl font-bold tracking-tighter text-center mb-4">为什么选择我们</h2>
+            <p class="text-neutral-400 text-center text-lg mb-16">不只是祝福，更是一份仪式感满满的心意</p>
+            <div class="grid md:grid-cols-2 gap-6">
+                <div class="glass rounded-2xl p-8 hover:bg-white/10 transition-all duration-300">
+                    <div class="text-3xl mb-4">🔒</div>
+                    <h3 class="text-xl font-bold mb-2">生日密码保护</h3>
+                    <p class="text-neutral-400 text-sm leading-relaxed">只有输入正确的生日日期才能解锁祝福，既保护隐私又增加仪式感</p>
+                </div>
+                <div class="glass rounded-2xl p-8 hover:bg-white/10 transition-all duration-300">
+                    <div class="text-3xl mb-4">🎭</div>
+                    <h3 class="text-xl font-bold mb-2">个性化定制</h3>
+                    <p class="text-neutral-400 text-sm leading-relaxed">每份祝福都是独一无二的，专属名字、专属话语、专属主题配色</p>
+                </div>
+                <div class="glass rounded-2xl p-8 hover:bg-white/10 transition-all duration-300">
+                    <div class="text-3xl mb-4">🎉</div>
+                    <h3 class="text-xl font-bold mb-2">沉浸式体验</h3>
+                    <p class="text-neutral-400 text-sm leading-relaxed">精心设计的动画与交互效果，打开就是一场视觉盛宴</p>
+                </div>
+                <div class="glass rounded-2xl p-8 hover:bg-white/10 transition-all duration-300">
+                    <div class="text-3xl mb-4">💬</div>
+                    <h3 class="text-xl font-bold mb-2">互动回应</h3>
+                    <p class="text-neutral-400 text-sm leading-relaxed">收到祝福的人可以选择感谢语回应，让温暖双向流动</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="py-20 md:py-32 px-6 md:px-12">
+        <div class="max-w-4xl mx-auto text-center">
+            <div class="glass rounded-3xl p-10 md:p-16 relative overflow-hidden">
+                <div class="absolute inset-0 bg-gradient-to-br from-rose-500/10 via-transparent to-amber-500/10"></div>
+                <div class="relative z-10">
+                    <span class="text-5xl md:text-6xl mb-6 block animate-float">🎁</span>
+                    <h2 class="text-3xl md:text-5xl font-bold tracking-tighter mb-6">现在就开始</h2>
+                    <p class="text-neutral-400 text-lg mb-8">为你在乎的人，创造一份专属的生日惊喜</p>
+                    <button onclick="showView('create')" class="bg-rose-500 hover:bg-rose-600 text-white px-10 py-4 rounded-full font-bold text-lg transition-all duration-300 hover:scale-105 hover:shadow-xl hover:shadow-rose-500/30">
+                        定制祝福 →
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer class="py-8 px-6 md:px-12 border-t border-white/5">
+        <div class="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-2"><span>🎂</span><span class="font-semibold text-sm">BlessingDay</span></div>
+            <p class="text-neutral-500 text-xs">© 2024 BlessingDay. 用心传递每一份祝福。</p>
+        </div>
+    </footer>
+</div>
+
+<!-- ==================== CREATE ==================== -->
+<div id="view-create" class="view">
+    <div class="min-h-screen flex items-center justify-center px-4 py-12 md:py-20">
+        <div class="w-full max-w-2xl">
+            <button onclick="showView('home')" class="flex items-center gap-2 text-neutral-400 hover:text-white text-sm font-medium transition-colors mb-8">
+                <i data-lucide="arrow-left" class="w-4 h-4"></i> 返回首页
+            </button>
+
+            <div class="glass rounded-3xl p-8 md:p-12 relative overflow-hidden">
+                <div class="absolute inset-0 bg-gradient-to-br from-rose-500/5 via-transparent to-purple-500/5"></div>
+                <div class="relative z-10">
+                    <div class="text-center mb-10">
+                        <span class="text-5xl mb-4 block">✍️</span>
+                        <h2 class="text-3xl md:text-4xl font-bold tracking-tighter">定制你的祝福</h2>
+                        <p class="text-neutral-400 mt-2 text-sm">填写以下信息，生成专属生日祝福</p>
+                    </div>
+
+                    <form id="createForm" onsubmit="handleCreate(event)" class="space-y-6">
+                        <div>
+                            <label class="block text-sm font-semibold mb-2 text-neutral-300">🎂 对方的名字 <span class="text-rose-400">*</span></label>
+                            <input type="text" id="recipientName" required placeholder="例：小明" class="input-field w-full px-5 py-3.5 rounded-xl text-sm">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-semibold mb-2 text-neutral-300">📅 对方的生日 <span class="text-rose-400">*</span>
+                                <span class="text-neutral-500 font-normal text-xs ml-1">（将作为解锁密码）</span>
+                            </label>
+                            <input type="date" id="birthday" required class="input-field w-full px-5 py-3.5 rounded-xl text-sm">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-semibold mb-2 text-neutral-300">💌 你的祝福语 <span class="text-rose-400">*</span></label>
+                            <textarea id="message" required rows="4" placeholder="写下你想对TA说的话…" class="input-field w-full px-5 py-3.5 rounded-xl text-sm resize-none"></textarea>
+                            <p class="text-neutral-500 text-xs mt-1">建议 50 字以内效果最佳</p>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-semibold mb-2 text-neutral-300">💜 你的名字 <span class="text-rose-400">*</span></label>
+                            <input type="text" id="senderName" required placeholder="例：你的好友" class="input-field w-full px-5 py-3.5 rounded-xl text-sm">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-semibold mb-3 text-neutral-300">🎨 选择主题</label>
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-3" id="themeSelector">
+                                <div class="theme-btn selected rounded-xl p-4 text-center cursor-pointer border-2 border-rose-500" data-theme="0" onclick="selectTheme(0)">
+                                    <div class="w-8 h-8 rounded-full mx-auto mb-2" style="background:linear-gradient(135deg,#F43F5E,#FB7185)"></div>
+                                    <span class="text-xs font-semibold">🌹 玫瑰温情</span>
+                                </div>
+                                <div class="theme-btn rounded-xl p-4 text-center cursor-pointer border-2 border-transparent" data-theme="1" onclick="selectTheme(1)" style="background:rgba(139,92,246,0.1)">
+                                    <div class="w-8 h-8 rounded-full mx-auto mb-2" style="background:linear-gradient(135deg,#8B5CF6,#A78BFA)"></div>
+                                    <span class="text-xs font-semibold">🌙 星空梦幻</span>
+                                </div>
+                                <div class="theme-btn rounded-xl p-4 text-center cursor-pointer border-2 border-transparent" data-theme="2" onclick="selectTheme(2)" style="background:rgba(212,175,55,0.1)">
+                                    <div class="w-8 h-8 rounded-full mx-auto mb-2" style="background:linear-gradient(135deg,#D4AF37,#F59E0B)"></div>
+                                    <span class="text-xs font-semibold">✨ 金色华章</span>
+                                </div>
+                                <div class="theme-btn rounded-xl p-4 text-center cursor-pointer border-2 border-transparent" data-theme="3" onclick="selectTheme(3)" style="background:rgba(16,185,129,0.1)">
+                                    <div class="w-8 h-8 rounded-full mx-auto mb-2" style="background:linear-gradient(135deg,#10B981,#34D399)"></div>
+                                    <span class="text-xs font-semibold">🌿 清新绿意</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="w-full bg-rose-500 hover:bg-rose-600 text-white py-4 rounded-xl font-bold text-lg transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:shadow-rose-500/25 mt-4">
+                            生成祝福 🎉
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== RESULT ==================== -->
+<div id="view-result" class="view">
+    <div class="min-h-screen flex items-center justify-center px-4 py-12 md:py-20">
+        <div class="w-full max-w-2xl">
+            <button onclick="showView('create')" class="flex items-center gap-2 text-neutral-400 hover:text-white text-sm font-medium transition-colors mb-8">
+                <i data-lucide="arrow-left" class="w-4 h-4"></i> 返回修改
+            </button>
+
+            <div class="glass rounded-3xl p-8 md:p-12 relative overflow-hidden text-center">
+                <div class="absolute inset-0 bg-gradient-to-br from-rose-500/5 via-transparent to-amber-500/5"></div>
+                <div class="relative z-10">
+                    <span class="text-5xl mb-4 block">🎉</span>
+                    <h2 class="text-3xl md:text-4xl font-bold tracking-tighter mb-2">祝福已生成！</h2>
+                    <p class="text-neutral-400 mb-8 text-sm">保存下方二维码或复制链接，发送给TA吧<br>TA需要输入生日日期才能解锁哦</p>
+
+                    <div class="inline-block glass-strong rounded-2xl p-6 mb-6">
+                        <div id="qrcode-container" class="mb-4"></div>
+                        <p class="text-neutral-400 text-xs">扫一扫 → 输入生日 → 解锁祝福</p>
+                    </div>
+
+                    <div class="glass rounded-xl p-4 mb-6 inline-block">
+                        <p class="text-sm text-neutral-300">致：<span id="resultRecipient" class="font-bold text-white"></span></p>
+                    </div>
+
+                    <div class="flex items-center gap-2 glass rounded-xl p-3 mb-6">
+                        <input type="text" id="resultLink" readonly class="bg-transparent text-xs text-neutral-300 flex-1 outline-none truncate font-mono">
+                        <button onclick="copyLink()" class="bg-rose-500 hover:bg-rose-600 text-white px-4 py-2 rounded-lg text-xs font-bold transition-all duration-200 whitespace-nowrap flex items-center gap-1">
+                            <i data-lucide="copy" class="w-3 h-3"></i> 复制
+                        </button>
+                    </div>
+
+                    <div class="flex flex-col sm:flex-row gap-3 justify-center">
+                        <button onclick="downloadQRCard()" class="bg-white hover:bg-neutral-200 text-black px-6 py-3 rounded-xl font-bold text-sm transition-all duration-200 flex items-center justify-center gap-2">
+                            <i data-lucide="download" class="w-4 h-4"></i> 下载二维码卡片
+                        </button>
+                        <button onclick="showView('create')" class="glass hover:bg-white/10 text-white px-6 py-3 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center justify-center gap-2">
+                            <i data-lucide="plus" class="w-4 h-4"></i> 再创建一个
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== BLESSING (with password gate) ==================== -->
+<div id="view-blessing" class="view">
+
+    <!-- Password Gate -->
+    <div id="passwordGate" class="min-h-screen flex items-center justify-center px-4 py-12" style="display:none">
+        <div class="w-full max-w-md text-center">
+            <div class="glass rounded-3xl p-8 md:p-12 relative overflow-hidden">
+                <div class="absolute inset-0 bg-gradient-to-br from-rose-500/5 via-transparent to-amber-500/5"></div>
+                <div class="relative z-10">
+                    <div class="text-6xl mb-6 animate-float">🎁</div>
+                    <h2 class="text-2xl md:text-3xl font-bold tracking-tighter mb-2">你有一份生日祝福</h2>
+                    <p class="text-neutral-400 text-sm mb-8">请输入你的生日来解锁这份惊喜</p>
+
+                    <form onsubmit="handleUnlock(event)" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-semibold mb-2 text-neutral-300">🔒 输入你的生日</label>
+                            <input type="date" id="unlockBirthday" required class="input-field w-full px-5 py-3.5 rounded-xl text-sm text-center" placeholder="选择你的生日">
+                        </div>
+                        <div id="unlockError" class="text-rose-400 text-xs font-medium" style="display:none">
+                            生日日期不正确，请重新输入
+                        </div>
+                        <button type="submit" class="w-full bg-rose-500 hover:bg-rose-600 text-white py-3.5 rounded-xl font-bold text-sm transition-all duration-300 hover:scale-[1.02]">
+                            解锁祝福 🔓
+                        </button>
+                    </form>
+
+                    <p class="text-neutral-500 text-xs mt-6">不知道日期？联系送你祝福的人吧~</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Blessing Content (hidden until unlocked) -->
+    <div id="blessingContent" class="min-h-screen relative overflow-hidden" style="display:none; opacity:0">
+        <div id="bgParticles" class="absolute inset-0 pointer-events-none"></div>
+
+        <div class="relative z-10 flex flex-col items-center justify-center min-h-screen px-6 py-12 text-center">
+            <div class="text-6xl md:text-8xl mb-6 animate-float blessing-anim" style="animation-delay:0.3s">🎂</div>
+
+            <h1 id="blessingTitle" class="text-3xl md:text-5xl lg:text-6xl font-bold tracking-tighter mb-4 blessing-anim" style="animation-delay:0.5s">
+                Happy Birthday!
+            </h1>
+
+            <div id="blessingName" class="text-2xl md:text-4xl font-bold mb-8 blessing-anim" style="animation-delay:0.7s"></div>
+
+            <div id="blessingMessage" class="glass-strong rounded-2xl p-6 md:p-8 max-w-lg mb-8 blessing-anim" style="animation-delay:0.9s">
+                <div class="text-2xl mb-4">💌</div>
+                <p class="text-base md:text-lg leading-relaxed text-neutral-200" id="blessingMessageText"></p>
+            </div>
+
+            <div id="blessingSender" class="text-sm text-neutral-400 mb-10 blessing-anim" style="animation-delay:1.1s">
+                来自 <span id="blessingSenderName" class="font-bold text-white"></span> 的祝福
+            </div>
+
+            <div class="flex items-center gap-4 mb-12 blessing-anim" style="animation-delay:1.3s">
+                <span class="text-3xl">✨</span>
+                <span class="text-3xl">🥂</span>
+                <span class="text-3xl">🎉</span>
+            </div>
+
+            <button id="likeBtn" onclick="handleLike()" class="group glass-strong rounded-full px-8 py-4 flex items-center gap-3 hover:bg-white/10 transition-all duration-300 blessing-anim" style="animation-delay:1.4s">
+                <span class="text-2xl group-hover:scale-125 transition-transform" id="likeEmoji">🤍</span>
+                <span class="font-semibold text-sm" id="likeText">喜欢这份祝福</span>
+            </button>
+
+            <div id="thankSection" class="mt-10 w-full max-w-md" style="display:none">
+                <div class="glass-strong rounded-2xl p-6">
+                    <div class="text-center mb-6">
+                        <span class="text-3xl">💝</span>
+                        <p class="text-sm text-neutral-300 mt-2">你的心意已收到！<br>选择一句感谢，传达给送你祝福的人吧~</p>
+                    </div>
+                    <div class="space-y-3" id="thankOptions">
+                        <button onclick="sendThanks(0)" class="thank-card w-full glass rounded-xl p-4 text-left hover:bg-white/10 transition-all duration-200 text-sm">
+                            😊 谢谢你的祝福，我很感动！
+                        </button>
+                        <button onclick="sendThanks(1)" class="thank-card w-full glass rounded-xl p-4 text-left hover:bg-white/10 transition-all duration-200 text-sm">
+                            🥰 有你真好，这份心意我会永远珍藏！
+                        </button>
+                        <button onclick="sendThanks(2)" class="thank-card w-full glass rounded-xl p-4 text-left hover:bg-white/10 transition-all duration-200 text-sm">
+                            😭 有你让我感到很幸福，生日很快乐！
+                        </button>
+                        <button onclick="sendThanks(3)" class="thank-card w-full glass rounded-xl p-4 text-left hover:bg-white/10 transition-all duration-200 text-sm">
+                            😍 收到祝福超开心的！爱死你啦~
+                        </button>
+                        <button onclick="sendThanks(4)" class="thank-card w-full glass rounded-xl p-4 text-left hover:bg-white/10 transition-all duration-200 text-sm">
+                            🎁 最好的生日礼物就是你的祝福，谢谢你！
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="thanksSent" class="mt-10" style="display:none">
+                <div class="glass-strong rounded-2xl p-8 text-center">
+                    <span class="text-4xl">✅</span>
+                    <p class="font-bold text-lg mt-3">已传达！</p>
+                    <p class="text-neutral-400 text-sm mt-1">你的感谢已送达 ❤️</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ==================== State ====================
+let selectedTheme = 0;
+let currentBlessingData = null;
+let blessingUnlocked = false;
+
+const themes = [
+    { name: '玫瑰温情', primary: '#F43F5E', secondary: '#FB7185', gradient: 'linear-gradient(135deg, #4a0e1e, #1a0a10, #2d0a1a)', accent: '#FDA4AF' },
+    { name: '星空梦幻', primary: '#8B5CF6', secondary: '#A78BFA', gradient: 'linear-gradient(135deg, #1a0a3a, #0a0a1a, #150a30)', accent: '#C4B5FD' },
+    { name: '金色华章', primary: '#D4AF37', secondary: '#F59E0B', gradient: 'linear-gradient(135deg, #2a1a00, #1a1500, #1a1200)', accent: '#FCD34D' },
+    { name: '清新绿意', primary: '#10B981', secondary: '#34D399', gradient: 'linear-gradient(135deg, #0a1a15, #0a1a10, #051510)', accent: '#6EE7B7' }
+];
+
+// ==================== View Management ====================
+function showView(viewName) {
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    const target = document.getElementById('view-' + viewName);
+    if (target) {
+        setTimeout(() => {
+            target.classList.add('active');
+            window.scrollTo(0, 0);
+            lucide.createIcons();
+        }, 50);
+    }
+}
+
+// ==================== Theme Selection ====================
+function selectTheme(index) {
+    selectedTheme = index;
+    document.querySelectorAll('.theme-btn').forEach(btn => {
+        btn.classList.remove('selected');
+        btn.style.borderColor = 'transparent';
+    });
+    const btn = document.querySelector(`.theme-btn[data-theme="${index}"]`);
+    if (btn) {
+        btn.classList.add('selected');
+        btn.style.borderColor = themes[index].primary;
+    }
+}
+
+// ==================== Create Blessing ====================
+function handleCreate(e) {
+    e.preventDefault();
+
+    const name = document.getElementById('recipientName').value.trim();
+    const birthday = document.getElementById('birthday').value;
+    const message = document.getElementById('message').value.trim();
+    const sender = document.getElementById('senderName').value.trim();
+
+    if (!name || !birthday || !message || !sender) return;
+
+    const data = { n: name, b: birthday, m: message, s: sender, t: selectedTheme };
+    currentBlessingData = data;
+
+    const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(data))));
+    const baseUrl = window.location.origin + window.location.pathname;
+    const fullUrl = baseUrl + '?d=' + encoded;
+
+    showView('result');
+
+    document.getElementById('resultRecipient').textContent = name;
+    document.getElementById('resultLink').value = fullUrl;
+
+    // Generate QR Code
+    const qrContainer = document.getElementById('qrcode-container');
+    qrContainer.innerHTML = '';
+    try {
+        new QRCode(qrContainer, {
+            text: fullUrl,
+            width: 220,
+            height: 220,
+            colorDark: '#ffffff',
+            colorLight: '#00000000',
+            correctLevel: QRCode.CorrectLevel.H
+        });
+    } catch (err) {
+        qrContainer.innerHTML = '';
+        new QRCode(qrContainer, {
+            text: fullUrl,
+            width: 220,
+            height: 220,
+            colorDark: '#000000',
+            colorLight: '#ffffff',
+            correctLevel: QRCode.CorrectLevel.H
+        });
+    }
+
+    lucide.createIcons();
+}
+
+// ==================== Copy Link ====================
+function copyLink() {
+    const link = document.getElementById('resultLink').value;
+    navigator.clipboard.writeText(link).then(() => {
+        showToast('链接已复制到剪贴板！');
+    }).catch(() => {
+        const input = document.getElementById('resultLink');
+        input.select();
+        document.execCommand('copy');
+        showToast('链接已复制到剪贴板！');
+    });
+}
+
+// ==================== Download QR Card ====================
+function downloadQRCard() {
+    if (!currentBlessingData) return;
+    const theme = themes[currentBlessingData.t];
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const w = 600, h = 850;
+    canvas.width = w;
+    canvas.height = h;
+
+    // Background
+    const bgGrad = ctx.createLinearGradient(0, 0, w, h);
+    bgGrad.addColorStop(0, theme.primary + '30');
+    bgGrad.addColorStop(0.5, '#0a0a0a');
+    bgGrad.addColorStop(1, theme.secondary + '20');
+    ctx.fillStyle = bgGrad;
+    ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = 'rgba(10,10,10,0.7)';
+    ctx.fillRect(0, 0, w, h);
+
+    // Decorative circles
+    ctx.beginPath(); ctx.arc(100, 100, 150, 0, Math.PI * 2);
+    ctx.fillStyle = theme.primary + '15'; ctx.fill();
+    ctx.beginPath(); ctx.arc(500, 750, 120, 0, Math.PI * 2);
+    ctx.fillStyle = theme.secondary + '15'; ctx.fill();
+
+    // Title
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 28px Manrope, sans-serif';
+    ctx.fillText('🎂 扫码查看生日祝福', w / 2, 80);
+
+    // Recipient
+    ctx.font = '22px Manrope, sans-serif';
+    ctx.fillStyle = theme.accent;
+    ctx.fillText('致: ' + currentBlessingData.n, w / 2, 125);
+
+    // QR white bg
+    const qrSize = 320, qrX = (w - qrSize) / 2, qrY = 170;
+    ctx.fillStyle = '#ffffff';
+    roundRect(ctx, qrX - 25, qrY - 25, qrSize + 50, qrSize + 50, 20);
+    ctx.fill();
+
+    // Draw QR
+    const qrImg = document.querySelector('#qrcode-container img') || document.querySelector('#qrcode-container canvas');
+    if (qrImg) {
+        const imgSrc = qrImg.tagName === 'CANVAS' ? qrImg.toDataURL() : qrImg.src;
+        const img = new Image();
+        img.onload = function () {
+            ctx.drawImage(img, qrX, qrY, qrSize, qrSize);
+
+            // Hint
+            ctx.fillStyle = 'rgba(255,255,255,0.4)';
+            ctx.font = '14px Manrope, sans-serif';
+            ctx.fillText('🔒 需要输入生日日期才能解锁', w / 2, 540);
+
+            // Message preview
+            ctx.fillStyle = 'rgba(255,255,255,0.5)';
+            ctx.font = '16px Manrope, sans-serif';
+            const previewMsg = currentBlessingData.m.length > 30 ? currentBlessingData.m.substring(0, 30) + '…' : currentBlessingData.m;
+            ctx.fillText('"' + previewMsg + '"', w / 2, 575);
+
+            // Sender
+            ctx.fillStyle = 'rgba(255,255,255,0.3)';
+            ctx.font = '14px Manrope, sans-serif';
+            ctx.fillText('来自 ' + currentBlessingData.s + ' 的祝福', w / 2, 615);
+
+            // Brand
+            ctx.fillStyle = 'rgba(255,255,255,0.15)';
+            ctx.font = '12px Manrope, sans-serif';
+            ctx.fillText('BlessingDay · 专属生日祝福', w / 2, 800);
+
+            const link = document.createElement('a');
+            link.download = `birthday-blessing-${currentBlessingData.n}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+            showToast('二维码卡片已下载！');
+        };
+        img.src = imgSrc;
+    }
+}
+
+function roundRect(ctx, x, y, width, height, radius) {
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.lineTo(x + width - radius, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+    ctx.lineTo(x + width, y + height - radius);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+    ctx.lineTo(x + radius, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+    ctx.lineTo(x, y + radius);
+    ctx.quadraticCurveTo(x, y, x + radius, y);
+    ctx.closePath();
+}
+
+// ==================== Toast ====================
+function showToast(text) {
+    const toast = document.getElementById('toast');
+    document.getElementById('toast-text').textContent = text;
+    toast.style.transform = 'translateX(0)';
+    setTimeout(() => { toast.style.transform = 'translateX(120%)'; }, 2500);
+}
+
+// ==================== Unlock Blessing (Password Gate) ====================
+function showBlessingPage(data) {
+    currentBlessingData = data;
+    const theme = themes[data.t] || themes[0];
+
+    document.getElementById('view-blessing').style.background = theme.gradient;
+
+    // Set content
+    document.getElementById('blessingName').textContent = data.n;
+    document.getElementById('blessingName').style.color = theme.accent;
+    document.getElementById('blessingTitle').style.color = theme.accent;
+    document.getElementById('blessingMessageText').textContent = data.m;
+    document.getElementById('blessingSenderName').textContent = data.s;
+
+    // Reset all states
+    document.getElementById('passwordGate').style.display = '';
+    document.getElementById('unlockBirthday').value = '';
+    document.getElementById('unlockError').style.display = 'none';
+    document.getElementById('blessingContent').style.display = 'none';
+    document.getElementById('blessingContent').style.opacity = '0';
+    document.getElementById('thankSection').style.display = 'none';
+    document.getElementById('thanksSent').style.display = 'none';
+    document.getElementById('likeBtn').style.display = '';
+    document.getElementById('likeEmoji').textContent = '🤍';
+    document.getElementById('likeText').textContent = '喜欢这份祝福';
+    blessingUnlocked = false;
+
+    document.querySelectorAll('.blessing-anim').forEach(el => {
+        el.style.opacity = '0';
+        el.style.transform = 'translateY(30px)';
+    });
+
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.getElementById('view-blessing').classList.add('active');
+}
+
+function handleUnlock(e) {
+    e.preventDefault();
+    const inputDate = document.getElementById('unlockBirthday').value;
+    const errorEl = document.getElementById('unlockError');
+
+    if (!inputDate) return;
+
+    if (inputDate === currentBlessingData.b) {
+        // Correct! Unlock
+        errorEl.style.display = 'none';
+        unlockBlessing();
+    } else {
+        // Wrong!
+        errorEl.style.display = 'block';
+        const input = document.getElementById('unlockBirthday');
+        input.parentElement.classList.add('shake');
+        setTimeout(() => input.parentElement.classList.remove('shake'), 400);
+    }
+}
+
+function unlockBlessing() {
+    if (blessingUnlocked) return;
+    blessingUnlocked = true;
+
+    // Hide gate
+    const gate = document.getElementById('passwordGate');
+    gate.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+    gate.style.opacity = '0';
+    gate.style.transform = 'scale(0.95)';
+    setTimeout(() => { gate.style.display = 'none'; }, 600);
+
+    // Show content
+    const content = document.getElementById('blessingContent');
+    content.style.display = '';
+    generateBgParticles(themes[(currentBlessingData && currentBlessingData.t) || 0]);
+
+    // Confetti
+    startConfetti();
+
+    // Animate content in
+    setTimeout(() => {
+        content.style.transition = 'opacity 0.8s ease';
+        content.style.opacity = '1';
+
+        document.querySelectorAll('.blessing-anim').forEach((el, i) => {
+            const delay = parseFloat(el.style.animationDelay) || (i * 0.2);
+            setTimeout(() => {
+                el.style.transition = 'all 0.8s cubic-bezier(0.16, 1, 0.3, 1)';
+                el.style.opacity = '1';
+                el.style.transform = 'translateY(0)';
+            }, delay * 1000);
+        });
+    }, 300);
+}
+
+function generateBgParticles(theme) {
+    const container = document.getElementById('bgParticles');
+    container.innerHTML = '';
+    const emojis = ['✨', '💖', '🌟', '🎈', '💫', '🦋', '🌸'];
+    for (let i = 0; i < 20; i++) {
+        const p = document.createElement('div');
+        p.className = 'sparkle-dot';
+        p.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+        p.style.left = Math.random() * 100 + '%';
+        p.style.top = Math.random() * 100 + '%';
+        p.style.fontSize = (Math.random() * 16 + 10) + 'px';
+        p.style.animationDelay = (Math.random() * 3) + 's';
+        p.style.animationDuration = (Math.random() * 2 + 1.5) + 's';
+        container.appendChild(p);
+    }
+}
+
+function startConfetti() {
+    const theme = themes[(currentBlessingData && currentBlessingData.t) || 0];
+    const colors = [theme.primary, theme.secondary, '#FFD700', '#FF6B6B', '#4ECDC4', '#A855F7', '#F97316'];
+    const shapes = ['■', '●', '▲', '★'];
+    for (let i = 0; i < 80; i++) {
+        setTimeout(() => {
+            const c = document.createElement('div');
+            c.className = 'confetti-piece';
+            c.textContent = shapes[Math.floor(Math.random() * shapes.length)];
+            c.style.left = Math.random() * 100 + 'vw';
+            c.style.color = colors[Math.floor(Math.random() * colors.length)];
+            c.style.fontSize = (Math.random() * 12 + 6) + 'px';
+            c.style.animationDuration = (Math.random() * 3 + 2) + 's';
+            c.style.animationDelay = (Math.random() * 0.5) + 's';
+            document.body.appendChild(c);
+            setTimeout(() => c.remove(), 6000);
+        }, i * 25);
+    }
+}
+
+function handleLike() {
+    document.getElementById('likeEmoji').textContent = '❤️';
+    document.getElementById('likeText').textContent = '已喜欢';
+    document.getElementById('likeBtn').style.pointerEvents = 'none';
+
+    const btn = document.getElementById('likeBtn');
+    const rect = btn.getBoundingClientRect();
+    for (let i = 0; i < 8; i++) {
+        const h = document.createElement('div');
+        h.className = 'heart-particle';
+        h.textContent = '❤️';
+        h.style.left = (rect.left + rect.width / 2 + (Math.random() - 0.5) * 80) + 'px';
+        h.style.top = rect.top + 'px';
+        h.style.fontSize = (Math.random() * 14 + 14) + 'px';
+        document.body.appendChild(h);
+        setTimeout(() => h.remove(), 1500);
+    }
+
+    setTimeout(() => {
+        document.getElementById('thankSection').style.display = 'block';
+        document.querySelectorAll('.thank-card').forEach((card, i) => {
+            setTimeout(() => card.classList.add('show'), i * 100);
+        });
+    }, 800);
+}
+
+function sendThanks(index) {
+    document.getElementById('thankSection').style.display = 'none';
+    document.getElementById('thanksSent').style.display = 'block';
+    document.getElementById('thanksSent').style.animation = 'scaleIn 0.5s ease forwards';
+    startConfetti();
+}
+
+// ==================== Demo ====================
+function previewDemo() {
+    const demoData = {
+        n: '小明',
+        b: '2000-06-15',
+        m: '愿你的每一天都充满阳光和欢笑，生日快乐！希望所有美好的事情都如期而至~',
+        s: '你的好友',
+        t: 0
+    };
+    showBlessingPage(demoData);
+    // Pre-fill demo password hint
+    document.getElementById('unlockBirthday').focus();
+}
+
+// ==================== URL Parameter Detection ====================
+function checkUrlParams() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const encodedData = urlParams.get('d');
+    if (encodedData) {
+        try {
+            const decoded = decodeURIComponent(escape(atob(encodedData)));
+            const data = JSON.parse(decoded);
+            showBlessingPage(data);
+            return true;
+        } catch (e) {
+            console.error('Failed to decode blessing data:', e);
+        }
+    }
+    return false;
+}
+
+// ==================== Init ====================
+document.addEventListener('DOMContentLoaded', () => {
+    lucide.createIcons();
+    if (!checkUrlParams()) {
+        showView('home');
+    }
+});
+</script>
+</body>
+</html>
